@@ -1,0 +1,241 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sip & Sizzle - Staff Dashboard</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #fff5e6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #087f4b;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-top: 0;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        button {
+            background: #087f4b;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.85;
+        }
+
+        .order-card {
+            background: white;
+            border: 1px solid #eadcc7;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px #0000000d;
+        }
+
+        .order-card h3 {
+            margin-top: 0;
+            color: #087f4b;
+        }
+
+        .status {
+            font-weight: bold;
+        }
+
+        .empty {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .order-total {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .status-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .ready-button {
+            background: #2458a6;
+        }
+
+        .done-button {
+            background: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>SIP & SIZZLE</h1>
+    <h2>Staff Order Dashboard</h2>
+    <p class="subtitle">View customer orders and update their status.</p>
+
+    <div class="toolbar">
+        <button onclick="showOrders()">Refresh Orders</button>
+        <button onclick="clearCompleted()">Clear Completed Orders</button>
+    </div>
+
+    <p id="orderCount"></p>
+
+    <div id="orders">
+        <p class="empty">Loading orders...</p>
+    </div>
+
+    <script>
+        function getOrders() {
+            return JSON.parse(
+                localStorage.getItem("sipSizzleOrders") || "[]"
+            );
+        }
+
+        function saveOrders(orders) {
+            localStorage.setItem(
+                "sipSizzleOrders",
+                JSON.stringify(orders)
+            );
+        }
+
+        function escapeHTML(value) {
+            return String(value).replace(/[&<>"']/g, function (char) {
+                const entities = {
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#39;"
+                };
+
+                return entities[char];
+            });
+        }
+
+        function showOrders() {
+            const ordersArea = document.getElementById("orders");
+            const orders = getOrders();
+
+            document.getElementById("orderCount").textContent =
+                "Total orders: " + orders.length;
+
+            if (orders.length === 0) {
+                ordersArea.innerHTML =
+                    '<p class="empty">No orders yet. Submit a test order from the customer menu first.</p>';
+                return;
+            }
+
+            ordersArea.innerHTML = "";
+
+            orders.slice().reverse().forEach(order => {
+                const card = document.createElement("div");
+                card.className = "order-card";
+
+                const itemsHTML = order.items.map(item => `
+                    <li>
+                        ${escapeHTML(item.name)}
+                        × ${Number(item.quantity)}
+                        — ₱${Number(item.subtotal).toFixed(2)}
+                    </li>
+                `).join("");
+
+                card.innerHTML = `
+                    <h3>Order #${escapeHTML(order.id)}</h3>
+                    <p><strong>Customer:</strong>
+                        ${escapeHTML(order.customerName)}</p>
+                    <p><strong>Time:</strong>
+                        ${escapeHTML(order.time || "Not recorded")}</p>
+                    <p><strong>Items:</strong></p>
+                    <ul>${itemsHTML}</ul>
+                    <p class="order-total">
+                        Total: ₱${Number(order.total).toFixed(2)}
+                    </p>
+                    <p>Status:
+                        <span class="status">${escapeHTML(order.status || "Pending")}</span>
+                    </p>
+                    <div class="status-buttons">
+                        <button onclick="updateStatus(${Number(order.id)}, 'Preparing')">
+                            Preparing
+                        </button>
+                        <button class="ready-button"
+                            onclick="updateStatus(${Number(order.id)}, 'Ready')">
+                            Ready
+                        </button>
+                        <button class="done-button"
+                            onclick="updateStatus(${Number(order.id)}, 'Completed')">
+                            Completed
+                        </button>
+                    </div>
+                `;
+
+                ordersArea.appendChild(card);
+            });
+        }
+
+        function updateStatus(orderId, newStatus) {
+            const orders = getOrders();
+
+            const order = orders.find(
+                item => Number(item.id) === orderId
+            );
+
+            if (!order) {
+                alert("Order not found.");
+                return;
+            }
+
+            order.status = newStatus;
+            saveOrders(orders);
+            showOrders();
+        }
+
+        function clearCompleted() {
+            const confirmed = confirm(
+                "Remove all completed orders from this dashboard?"
+            );
+
+            if (!confirmed) return;
+
+            const remainingOrders = getOrders().filter(
+                order => order.status !== "Completed"
+            );
+
+            saveOrders(remainingOrders);
+            showOrders();
+        }
+
+        window.addEventListener("storage", function (event) {
+            if (event.key === "sipSizzleOrders") {
+                showOrders();
+            }
+        });
+
+        showOrders();
+    </script>
+
+</body>
+</html>

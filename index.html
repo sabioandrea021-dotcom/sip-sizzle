@@ -1,0 +1,501 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sip & Sizzle Ordering System</title>
+
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #fff5e6;
+            color: #222;
+            margin: 0;
+            padding: 20px;
+        }
+
+.brand-banner {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto 20px;
+}
+
+.brand-banner img {
+    display: block;
+    width: 100%;
+    height: 260px;
+    object-fit: cover;
+    border-radius: 16px;
+}
+
+        header {
+            text-align: center;
+            color: #087f4b;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        h2 {
+            background-color: #087f4b;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .menu {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .item {
+            background-color: white;
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid #eadcc7;
+        }
+
+        .item h3 {
+            margin-top: 0;
+        }
+
+        .price {
+            color: #d97706;
+            font-weight: bold;
+        }
+
+        input, select {
+            padding: 8px;
+            margin-top: 8px;
+            max-width: 100%;
+        }
+
+        input[type="number"] {
+            width: 65px;
+        }
+
+        button {
+            background-color: #087f4b;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        #total {
+            font-size: 22px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+
+<body>
+
+<div class="brand-banner">
+    <img src="sip-sizzle-banner.png.jpg"
+         alt="Sip & Sizzle">
+</div>
+
+
+<header>
+    <h1>SIP & SIZZLE</h1>
+    <p>EAT. SIP. REPEAT.</p>
+    <h2>ONLINE MENU</h2>
+    <p>Select your items and quantities.</p>
+</header>
+
+<main id="menu"></main>
+
+
+
+<h2>Your Order Summary</h2>
+
+<label for="customerName">Customer Name:</label>
+<input
+    type="text"
+    id="customerName"
+    placeholder="Enter your name"
+    required
+>
+
+<ul id="orderList">
+    <li>No items selected yet.</li>
+</ul>
+
+<p id="total">Total: ₱0.00</p>
+
+<h2>Choose Payment Method</h2>
+
+<div class="payment-options">
+    <label>
+        <input type="radio" name="paymentMethod"
+               value="Cash" checked>
+        💵 Cash — Pay at the Counter
+    </label>
+
+    <label>
+        <input type="radio" name="paymentMethod"
+               value="GCash">
+        📱 Cashless — GCash
+    </label>
+</div>
+
+<div id="gcashSection" style="display: none;">
+    <h3>Pay via GCash</h3>
+    <p>Scan this QR code using your GCash app.</p>
+
+    <img src="gcash-qr.png.jpg"
+         alt="Sip & Sizzle GCash QR Code"
+         style="width: 220px; max-width: 100%;">
+
+    <p>After paying, wait for the staff to verify your payment.</p>
+</div>
+
+<p id="cashMessage">Please pay at the counter.</p>
+
+<button type="button" onclick="placeOrder()">
+    Place Order
+</button>
+
+<p id="confirmation"></p>
+
+
+<script>
+const categories = [
+    {
+        name: "Meals",
+        items: [
+            { name: "Chicken Pastil", price: 55 },
+            { name: "Pork Tonkatsu", price: 69 },
+            { name: "Fried Chicken", price: 55 },
+            { name: "Pork Sisig - Regular", price: 59 },
+            { name: "Pork Sisig With Egg", price: 69 }
+        ]
+    },
+    {
+        name: "Silog Meals",
+        items: [
+            { name: "Hotsilog", price: 39 },
+            { name: "Lumpiasilog", price: 39 },
+            { name: "Siomaisilog", price: 39 },
+            { name: "Hamsilog", price: 39 },
+            { name: "Porksilog", price: 59 },
+            { name: "Tapsilog", price: 69 }
+        ]
+    },
+    {
+        name: "Snacks",
+        items: [
+            { name: "Regular Burger", price: 20 },
+            { name: "Cheese Burger", price: 25 },
+            { name: "Burger With Egg", price: 35 },
+            { name: "Hotdog Sandwich", price: 25 },
+            { name: "Cheesy Hotdog Sandwich", price: 35 }
+        ]
+    },
+    {
+        name: "Fries Flavor",
+        items: [
+            { name: "Cheese Fries", price: 30 },
+            { name: "Sour Cream Fries", price: 30 },
+            { name: "Barbecue Fries", price: 30 }
+        ]
+    },
+    {
+        name: "Fruit Soda Series",
+        flavors: [
+            "Strawberry", "Lychee", "Green Apple",
+            "Lemon", "Blueberry"
+        ],
+        sizes: [
+            { name: "12 oz", price: 29 },
+            { name: "16 oz", price: 39 }
+        ]
+    },
+    {
+        name: "Yakult Series",
+        flavors: [
+            "Strawberry", "Lychee", "Green Apple",
+            "Lemon", "Blueberry"
+        ],
+        sizes: [
+            { name: "12 oz", price: 44 },
+            { name: "16 oz", price: 54 }
+        ]
+    },
+    {
+        name: "Special Drinks",
+        items: [
+            {
+                name: "Iced Coffee Latte",
+                sizes: [
+                    { name: "12 oz", price: 49 },
+                    { name: "16 oz", price: 59 }
+                ]
+            },
+            {
+                name: "Matcha Latte",
+                sizes: [
+                    { name: "12 oz", price: 49 },
+                    { name: "16 oz", price: 59 }
+                ]
+            },
+            {
+                name: "Lemonade",
+                sizes: [
+                    { name: "12 oz", price: 39 },
+                    { name: "16 oz", price: 49 }
+                ]
+            },
+            {
+                name: "Oreo Matcha Latte",
+                sizes: [
+                    { name: "12 oz", price: 59 },
+                    { name: "16 oz", price: 69 }
+                ]
+            }
+        ]
+    },
+    {
+        name: "Snack Combos",
+        items: [
+            { name: "Combo A - Burger + Fruit Soda", price: 45 },
+            { name: "Combo B - Hotdog + Fruit Soda", price: 50 },
+            { name: "Combo C - Fries + Fruit Soda", price: 55 },
+            { name: "Combo D - Burger + Fries", price: 45 },
+            { name: "Combo E - Hotdog + Fries", price: 50 }
+        ]
+    }
+];
+
+const menu = document.getElementById("menu");
+let itemNumber = 0;
+
+categories.forEach(category => {
+    const heading = document.createElement("h2");
+    heading.textContent = category.name;
+    menu.appendChild(heading);
+
+    const grid = document.createElement("div");
+    grid.className = "menu";
+
+    if (category.flavors) {
+        category.flavors.forEach(flavor => {
+            category.sizes.forEach(size => {
+                addItem(grid, {
+                    name: flavor + " " + category.name.replace(" Series", ""),
+                    price: size.price,
+                    size: size.name
+                });
+            });
+        });
+    }
+
+    if (category.items) {
+        category.items.forEach(item => {
+            if (item.sizes) {
+                item.sizes.forEach(size => {
+                    addItem(grid, {
+                        name: item.name,
+                        price: size.price,
+                        size: size.name
+                    });
+                });
+            } else {
+                addItem(grid, item);
+            }
+        });
+    }
+
+    menu.appendChild(grid);
+});
+
+function addItem(container, item) {
+    itemNumber++;
+
+    const card = document.createElement("div");
+    card.className = "item";
+
+    const title = document.createElement("h3");
+    title.textContent = item.name + (item.size ? " (" + item.size + ")" : "");
+
+    const price = document.createElement("p");
+    price.className = "price";
+    price.textContent = "₱" + item.price;
+
+    const label = document.createElement("label");
+    label.textContent = "Quantity: ";
+
+    const quantity = document.createElement("input");
+    quantity.type = "number";
+    quantity.min = "0";
+    quantity.step = "1";
+    quantity.value = "0";
+    quantity.dataset.price = item.price;
+    quantity.className = "quantity";
+
+    label.appendChild(quantity);
+    card.appendChild(title);
+    card.appendChild(price);
+    card.appendChild(label);
+    container.appendChild(card);
+}
+
+
+
+function calculateTotal() {
+    let total = 0;
+    let orderDetails = "";
+
+    const quantities = document.querySelectorAll(".quantity");
+
+    quantities.forEach(input => {
+        const quantity = Math.max(
+            0,
+            Math.floor(Number(input.value) || 0)
+        );
+
+        const price = Number(input.dataset.price);
+
+        if (quantity > 0) {
+            const itemName = input.closest(".item")
+                .querySelector("h3").textContent;
+
+            const subtotal = quantity * price;
+
+            orderDetails +=
+                `<li>${itemName} × ${quantity} = ₱${subtotal.toFixed(2)}</li>`;
+
+            total += subtotal;
+        }
+    });
+
+    if (orderDetails === "") {
+        orderDetails = "<li>No items selected yet.</li>";
+    }
+
+    document.getElementById("orderList").innerHTML = orderDetails;
+
+    document.getElementById("total").textContent =
+        "Total: ₱" + total.toFixed(2);
+}
+
+ 
+function placeOrder() {
+    const customerName = document
+        .getElementById("customerName")
+        .value.trim();
+
+    if (customerName === "") {
+        alert("Please enter your name first!");
+        return;
+    }
+
+    const quantities = document.querySelectorAll(".quantity");
+    const items = [];
+    let totalItems = 0;
+    let orderTotal = 0;
+
+    quantities.forEach(input => {
+        const quantity = Math.max(
+            0,
+            Math.floor(Number(input.value) || 0)
+        );
+
+        if (quantity > 0) {
+            const itemCard = input.closest(".item");
+            const itemName = itemCard.querySelector("h3").textContent;
+            const price = Number(input.dataset.price);
+
+            items.push({
+                name: itemName,
+                quantity: quantity,
+                price: price,
+                subtotal: quantity * price
+            });
+
+            totalItems += quantity;
+            orderTotal += quantity * price;
+        }
+    });
+
+    if (totalItems === 0) {
+        alert("Please select at least one item!");
+        return;
+    }
+
+    calculateTotal();
+
+    const orders = JSON.parse(
+        localStorage.getItem("sipSizzleOrders") || "[]"
+    );
+
+    
+const paymentMethod = document.querySelector(
+    'input[name="paymentMethod"]:checked'
+).value;
+
+const newOrder = {
+    id: Date.now(),
+    customerName: customerName,
+    items: items,
+    total: orderTotal,
+    paymentMethod: paymentMethod,
+    paymentStatus: paymentMethod === "Cash"
+        ? "Pay at Counter"
+        : "Awaiting Verification",
+    status: "Pending",
+    time: new Date().toLocaleTimeString()
+};
+
+
+    orders.push(newOrder);
+
+    localStorage.setItem(
+        "sipSizzleOrders",
+        JSON.stringify(orders)
+    );
+
+    
+    document.getElementById("confirmation").textContent =
+        "Thank you, " + customerName +
+        "! Your order has been submitted. " +
+        "Please show this to the stall staff.";
+}
+
+// Payment selection
+const paymentOptions = document.querySelectorAll(
+    'input[name="paymentMethod"]'
+);
+
+function updatePaymentDisplay() {
+    const selectedPayment = document.querySelector(
+        'input[name="paymentMethod"]:checked'
+    ).value;
+
+    const isGCash = selectedPayment === "GCash";
+
+    document.getElementById("gcashSection").style.display =
+        isGCash ? "block" : "none";
+
+    document.getElementById("cashMessage").style.display =
+        isGCash ? "none" : "block";
+}
+
+paymentOptions.forEach(option => {
+    option.addEventListener("change", updatePaymentDisplay);
+});
+
+updatePaymentDisplay();
+
+</script>
+</body>
+</html>

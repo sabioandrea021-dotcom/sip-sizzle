@@ -168,7 +168,25 @@
 <p id="confirmation"></p>
 
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
+const firebaseConfig = {
+ apiKey: "AIzaSyDJIezV3VDJIh8GObhf-IdM5mUHpDGQG4",
+ authDomain: "sip-sizzle.firebaseapp.com",
+ databaseURL: "https://sip-sizzle-default-rtdb.asia-southeast1.firebasedatabase.app",
+ projectId: "sip-sizzle",
+ storageBucket: "sip-sizzle.firebasestorage.app",
+ messagingSenderId: "326718265772",
+ appId: "1:326718265772:web:5a213451c6524ca4b44209",
+ measurementId: "G-P7L1G1S3NB"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const database = firebase.database();
+const customerAuthReady = auth.signInAnonymously();
+
 const categories = [
     {
         name: "Meals",
@@ -389,86 +407,52 @@ function calculateTotal() {
 }
 
  
-function placeOrder() {
-    const customerName = document
-        .getElementById("customerName")
-        .value.trim();
+async function placeOrder() {
+    const customerName = document.getElementById("customerName").value.trim();
+    if (!customerName) { alert("Please enter your name first!"); return; }
 
-    if (customerName === "") {
-        alert("Please enter your name first!");
-        return;
-    }
-
-    const quantities = document.querySelectorAll(".quantity");
     const items = [];
-    let totalItems = 0;
-    let orderTotal = 0;
-
-    quantities.forEach(input => {
-        const quantity = Math.max(
-            0,
-            Math.floor(Number(input.value) || 0)
-        );
-
+    let totalItems = 0, orderTotal = 0;
+    document.querySelectorAll(".quantity").forEach(input => {
+        const quantity = Math.max(0, Math.floor(Number(input.value) || 0));
         if (quantity > 0) {
             const itemCard = input.closest(".item");
             const itemName = itemCard.querySelector("h3").textContent;
             const price = Number(input.dataset.price);
-
-            items.push({
-                name: itemName,
-                quantity: quantity,
-                price: price,
-                subtotal: quantity * price
-            });
-
+            items.push({ name: itemName, quantity, price, subtotal: quantity * price });
             totalItems += quantity;
             orderTotal += quantity * price;
         }
     });
+    if (totalItems === 0) { alert("Please select at least one item!"); return; }
 
-    if (totalItems === 0) {
-        alert("Please select at least one item!");
-        return;
+    const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+    const newOrder = {
+        customerName, items, total: orderTotal, paymentMethod,
+        paymentStatus: paymentMethod === "Cash" ? "Pay at Counter" : "Awaiting Verification",
+        status: "Pending", time: new Date().toLocaleTimeString(),
+        createdAt: firebase.database.ServerValue.TIMESTAMP
+    };
+    const button = document.querySelector('button[onclick="placeOrder()"]');
+    const confirmation = document.getElementById("confirmation");
+    button.disabled = true;
+    button.textContent = "Submitting...";
+    try {
+        await customerAuthReady;
+        const orderRef = database.ref("orders").push();
+        await orderRef.set(newOrder);
+        confirmation.textContent = "Thank you, " + customerName +
+            "! Your order has been submitted. Order number: " +
+            orderRef.key.slice(-6).toUpperCase() + ". Please show this number to the stall staff.";
+        document.querySelectorAll(".quantity").forEach(input => input.value = "0");
+        calculateTotal();
+    } catch (error) {
+        console.error(error);
+        confirmation.textContent = "Order submission failed. Please check your connection or ask the stall staff for help.";
+    } finally {
+        button.disabled = false;
+        button.textContent = "Place Order";
     }
-
-    calculateTotal();
-
-    const orders = JSON.parse(
-        localStorage.getItem("sipSizzleOrders") || "[]"
-    );
-
-    
-const paymentMethod = document.querySelector(
-    'input[name="paymentMethod"]:checked'
-).value;
-
-const newOrder = {
-    id: Date.now(),
-    customerName: customerName,
-    items: items,
-    total: orderTotal,
-    paymentMethod: paymentMethod,
-    paymentStatus: paymentMethod === "Cash"
-        ? "Pay at Counter"
-        : "Awaiting Verification",
-    status: "Pending",
-    time: new Date().toLocaleTimeString()
-};
-
-
-    orders.push(newOrder);
-
-    localStorage.setItem(
-        "sipSizzleOrders",
-        JSON.stringify(orders)
-    );
-
-    
-    document.getElementById("confirmation").textContent =
-        "Thank you, " + customerName +
-        "! Your order has been submitted. " +
-        "Please show this to the stall staff.";
 }
 
 // Payment selection

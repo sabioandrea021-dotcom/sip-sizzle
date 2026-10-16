@@ -97,29 +97,86 @@
     <h2>Staff Order Dashboard</h2>
     <p class="subtitle">View customer orders and update their status.</p>
 
-    <div class="toolbar">
-        <button onclick="showOrders()">Refresh Orders</button>
-        <button onclick="clearCompleted()">Clear Completed Orders</button>
-    </div>
+    <section id="loginPanel" class="order-card">
+        <h3>Staff sign in</h3>
+        <label>Email <input id="staffEmail" type="email" autocomplete="username"></label>
+        <label>Password <input id="staffPassword" type="password" autocomplete="current-password"></label>
+        <button onclick="signInStaff()">Sign in</button>
+        <p id="loginMessage"></p>
+    </section>
+    <div id="dashboard" style="display:none">
+      <p id="signedInAs"></p>
+      <div class="toolbar">
+          <button onclick="showOrders()">Refresh Orders</button>
+          <button onclick="clearCompleted()">Clear Completed Orders</button>
+          <button onclick="signOutStaff()">Sign out</button>
+      </div>
 
     <p id="orderCount"></p>
 
     <div id="orders">
-        <p class="empty">Loading orders...</p>
+        <p class="empty">Sign in to load orders.</p>
+    </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <script>
-        function getOrders() {
-            return JSON.parse(
-                localStorage.getItem("sipSizzleOrders") || "[]"
-            );
-        }
+        const firebaseConfig = {
+            apiKey: "AIzaSyDJIezV3VDJIh8GObhf-IdM5mUHpDGQG4",
+            authDomain: "sip-sizzle.firebaseapp.com",
+            databaseURL: "https://sip-sizzle-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "sip-sizzle",
+            storageBucket: "sip-sizzle.firebasestorage.app",
+            messagingSenderId: "326718265772",
+            appId: "1:326718265772:web:5a213451c6524ca4b44209",
+            measurementId: "G-P7L1G1S3NB"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        let currentOrders = {};
 
-        function saveOrders(orders) {
-            localStorage.setItem(
-                "sipSizzleOrders",
-                JSON.stringify(orders)
-            );
+        async function signInStaff() {
+            const msg = document.getElementById("loginMessage");
+            msg.textContent = "Signing in...";
+            try {
+                await auth.signInWithEmailAndPassword(
+                    document.getElementById("staffEmail").value.trim(),
+                    document.getElementById("staffPassword").value
+                );
+            } catch (error) {
+                console.error(error);
+                msg.textContent = "Sign-in failed. Check the email/password and Firebase settings.";
+            }
+        }
+        async function signOutStaff() { await auth.signOut(); }
+
+        auth.onAuthStateChanged(user => {
+            document.getElementById("loginPanel").style.display = user ? "none" : "block";
+            document.getElementById("dashboard").style.display = user ? "block" : "none";
+            if (user) {
+                document.getElementById("signedInAs").textContent =
+                    "Signed in: " + user.email + " | Staff UID: " + user.uid;
+                database.ref("orders").on("value", snapshot => {
+                    currentOrders = snapshot.val() || {};
+                    showOrders();
+                }, error => {
+                    document.getElementById("orders").innerHTML =
+                        '<p class="empty">Could not load orders. Check Firebase security rules.</p>';
+                    console.error(error);
+                });
+            } else {
+                database.ref("orders").off();
+                currentOrders = {};
+                document.getElementById("orders").innerHTML =
+                    '<p class="empty">Sign in to load orders.</p>';
+            }
+        });
+
+        function getOrders() {
+            return Object.entries(currentOrders).map(([key, order]) => ({...order, id: key}));
         }
 
         function escapeHTML(value) {
@@ -164,7 +221,7 @@
                 `).join("");
 
                 card.innerHTML = `
-                    <h3>Order #${escapeHTML(order.id)}</h3>
+                    <h3>Order #${escapeHTML(String(order.id).slice(-6).toUpperCase())}</h3>
                     <p><strong>Customer:</strong>
                         ${escapeHTML(order.customerName)}</p>
                     <p><strong>Time:</strong>
@@ -178,15 +235,15 @@
                         <span class="status">${escapeHTML(order.status || "Pending")}</span>
                     </p>
                     <div class="status-buttons">
-                        <button onclick="updateStatus(${Number(order.id)}, 'Preparing')">
+                        <button onclick="updateStatus('${order.id}', 'Preparing')">
                             Preparing
                         </button>
                         <button class="ready-button"
-                            onclick="updateStatus(${Number(order.id)}, 'Ready')">
+                            onclick="updateStatus('${order.id}', 'Ready')">
                             Ready
                         </button>
                         <button class="done-button"
-                            onclick="updateStatus(${Number(order.id)}, 'Completed')">
+                            onclick="updateStatus('${order.id}', 'Completed')">
                             Completed
                         </button>
                     </div>
@@ -196,45 +253,59 @@
             });
         }
 
-        function updateStatus(orderId, newStatus) {
+        async function updateStatus(orderId, newStatus) {
+            try {
+                await database.ref("orders/" + orderId + "/status").set(newStatus);
+            } catch (error) {
+                console.error(error);
+                alert("Could not update status. Check Firebase security rules.");
+            }
+        }
+
+        async function clearCompleted() {
+            if (!confirm("Remove all completed orders from this dashboard?")) return;
+            const updates = {};
+            getOrders().filter(order => order.status === "Completed")
+                .forEach(order => updates[order.id] = null);
+            try {
+                await database.ref("orders").update(updates);
+            } catch (error) {
+                console.error(error);
+                alert("Could not clear completed orders. Check Firebase security rules.");
+            }
+        }
+
+        function showOrders() {
+            const ordersArea = document.getElementById("orders");
             const orders = getOrders();
-
-            const order = orders.find(
-                item => Number(item.id) === orderId
-            );
-
-            if (!order) {
-                alert("Order not found.");
+            document.getElementById("orderCount").textContent = "Total orders: " + orders.length;
+            if (orders.length === 0) {
+                ordersArea.innerHTML = '<p class="empty">No orders yet. Submit a test order from the customer menu.</p>';
                 return;
             }
-
-            order.status = newStatus;
-            saveOrders(orders);
-            showOrders();
+            ordersArea.innerHTML = "";
+            orders.slice().reverse().forEach(order => {
+                const card = document.createElement("div");
+                card.className = "order-card";
+                const itemsHTML = (order.items || []).map(item => `
+                    <li>${escapeHTML(item.name)} × ${Number(item.quantity)} — ₱${Number(item.subtotal).toFixed(2)}</li>
+                `).join("");
+                card.innerHTML = `
+                    <h3>Order #${escapeHTML(String(order.id).slice(-6).toUpperCase())}</h3>
+                    <p><strong>Customer:</strong> ${escapeHTML(order.customerName)}</p>
+                    <p><strong>Time:</strong> ${escapeHTML(order.time || "Not recorded")}</p>
+                    <p><strong>Payment:</strong> ${escapeHTML(order.paymentMethod || "Not recorded")} — ${escapeHTML(order.paymentStatus || "")}</p>
+                    <p><strong>Items:</strong></p><ul>${itemsHTML}</ul>
+                    <p class="order-total">Total: ₱${Number(order.total).toFixed(2)}</p>
+                    <p>Status: <span class="status">${escapeHTML(order.status || "Pending")}</span></p>
+                    <div class="status-buttons">
+                      <button onclick="updateStatus('${order.id}', 'Preparing')">Preparing</button>
+                      <button class="ready-button" onclick="updateStatus('${order.id}', 'Ready')">Ready</button>
+                      <button class="done-button" onclick="updateStatus('${order.id}', 'Completed')">Completed</button>
+                    </div>`;
+                ordersArea.appendChild(card);
+            });
         }
-
-        function clearCompleted() {
-            const confirmed = confirm(
-                "Remove all completed orders from this dashboard?"
-            );
-
-            if (!confirmed) return;
-
-            const remainingOrders = getOrders().filter(
-                order => order.status !== "Completed"
-            );
-
-            saveOrders(remainingOrders);
-            showOrders();
-        }
-
-        window.addEventListener("storage", function (event) {
-            if (event.key === "sipSizzleOrders") {
-                showOrders();
-            }
-        });
-
-        showOrders();
     </script>
 
 </body>

@@ -148,7 +148,7 @@
                 );
             } catch (error) {
                 console.error(error);
-                msg.textContent = "Sign-in failed. Check the email/password and Firebase settings.";
+                msg.textContent = `${error.code || "unknown-error"}: ${error.message || "No details provided"}`;
             }
         }
         async function signOutStaff() { await auth.signOut(); }
